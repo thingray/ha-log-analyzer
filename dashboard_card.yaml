@@ -1,0 +1,106 @@
+# ============================================
+# DASHBOARD CARD - LOG ANALYZER (Multi-language)
+# ============================================
+
+type: vertical-stack
+cards:
+  # Header avec stats globales
+  - type: entities
+    title: >
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}📊 Analyse des Logs HA
+      {% elif lang == 'de' %}📊 HA Log-Analyse
+      {% else %}📊 HA Log Analysis{% endif %}
+    show_header_toggle: false
+    entities:
+      - entity: sensor.ha_log_analysis
+        name: >
+          {% set lang = states('input_select.ha_log_analyzer_language') %}
+          {% if lang == 'fr' %}Erreurs/Warnings totaux
+          {% elif lang == 'de' %}Fehler/Warnungen gesamt
+          {% else %}Total Errors/Warnings{% endif %}
+        icon: mdi:alert-circle
+      - type: attribute
+        entity: sensor.ha_log_analysis
+        attribute: total_entries
+        name: >
+          {% set lang = states('input_select.ha_log_analyzer_language') %}
+          {% if lang == 'fr' %}Entrées totales
+          {% elif lang == 'de' %}Gesamteinträge
+          {% else %}Total entries{% endif %}
+        icon: mdi:file-document
+      - entity: input_select.ha_log_analyzer_language
+        name: "🌍 Langue / Language / Sprache"
+      - type: divider
+      - type: button
+        name: >
+          {% set lang = states('input_select.ha_log_analyzer_language') %}
+          {% if lang == 'fr' %}Analyser maintenant
+          {% elif lang == 'de' %}Jetzt analysieren
+          {% else %}Analyze now{% endif %}
+        icon: mdi:refresh
+        tap_action:
+          action: call-service
+          service: script.analyze_logs_now
+
+  # Top erreurs
+  - type: markdown
+    title: >
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}🔝 Top Erreurs
+      {% elif lang == 'de' %}🔝 Top Fehler
+      {% else %}🔝 Top Errors{% endif %}
+    content: >
+      {% set top = state_attr('sensor.ha_log_analysis', 'top_errors') %}
+      {% if top %}
+      {% for err in top[:5] %}
+      **{{ loop.index }}. [{{ err.integration }}]** x{{ err.count }}
+      {{ err.message[:80] }}{% if err.message|length > 80 %}...{% endif %}
+      
+      {% endfor %}
+      {% else %}
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}Aucune donnée. Lancez une analyse.
+      {% elif lang == 'de' %}Keine Daten. Führen Sie eine Analyse durch.
+      {% else %}No data. Run an analysis.{% endif %}
+      {% endif %}
+
+  # Par sévérité
+  - type: markdown
+    title: >
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}📈 Par Sévérité
+      {% elif lang == 'de' %}📈 Nach Schweregrad
+      {% else %}📈 By Severity{% endif %}
+    content: >
+      {% set sev = state_attr('sensor.ha_log_analysis', 'by_severity') %}
+      {% if sev %}
+      🔴 **CRITICAL:** {{ sev.CRITICAL | default(0) }}
+      🟠 **ERROR:** {{ sev.ERROR | default(0) }}
+      🟡 **WARNING:** {{ sev.WARNING | default(0) }}
+      {% else %}
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}Aucune donnée.
+      {% elif lang == 'de' %}Keine Daten.
+      {% else %}No data.{% endif %}
+      {% endif %}
+
+  # Top intégrations
+  - type: markdown
+    title: >
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}📦 Top Intégrations
+      {% elif lang == 'de' %}📦 Top Integrationen
+      {% else %}📦 Top Integrations{% endif %}
+    content: >
+      {% set integs = state_attr('sensor.ha_log_analysis', 'by_integration') %}
+      {% if integs %}
+      {% for name, counts in (integs.items() | sort(attribute='1', reverse=true))[:5] %}
+      **{{ name }}:** {{ counts.values() | sum }} ({% for s, c in counts.items() %}{{ s }}: {{ c }}{% if not loop.last %}, {% endif %}{% endfor %})
+      {% endfor %}
+      {% else %}
+      {% set lang = states('input_select.ha_log_analyzer_language') %}
+      {% if lang == 'fr' %}Aucune donnée.
+      {% elif lang == 'de' %}Keine Daten.
+      {% else %}No data.{% endif %}
+      {% endif %}

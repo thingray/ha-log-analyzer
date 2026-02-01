@@ -1,0 +1,7 @@
+{
+  "name": "HA Log Analyzer",
+  "render_readme": true,
+  "domains": ["sensor", "shell_command", "automation", "script"],
+  "country": ["CA", "FR", "DE", "US", "GB", "CH", "BE", "AT"],
+  "homeassistant": "2023.1.0"
+}

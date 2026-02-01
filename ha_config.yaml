@@ -1,0 +1,125 @@
+# ============================================
+# HOME ASSISTANT LOG ANALYZER
+# Multi-language: FR, EN, DE
+# ============================================
+# 1. Copier ha_log_analyzer.py dans /config/scripts/
+# 2. Ajouter ce bloc à configuration.yaml ou un package
+# 3. Redémarrer Home Assistant
+# ============================================
+
+# Sélection de la langue
+input_select:
+  ha_log_analyzer_language:
+    name: "Log Analyzer - Langue / Language / Sprache"
+    options:
+      - fr
+      - en
+      - de
+    initial: fr
+    icon: mdi:translate
+
+# Shell commands par langue
+shell_command:
+  analyze_ha_logs_fr: 'python3 /config/scripts/ha_log_analyzer.py /config/home-assistant.log fr'
+  analyze_ha_logs_en: 'python3 /config/scripts/ha_log_analyzer.py /config/home-assistant.log en'
+  analyze_ha_logs_de: 'python3 /config/scripts/ha_log_analyzer.py /config/home-assistant.log de'
+
+# Sensor pour lire les résultats JSON
+sensor:
+  - platform: command_line
+    name: "HA Log Analysis"
+    command: "cat /config/log_analysis.json 2>/dev/null || echo '{\"error\": \"no data\"}'"
+    value_template: "{{ value_json.filtered_entries | default(0) }}"
+    unit_of_measurement: "erreurs"
+    scan_interval: 3600
+    json_attributes:
+      - timestamp
+      - language
+      - total_entries
+      - by_severity
+      - by_integration
+      - top_errors
+
+# Automation analyse quotidienne
+automation:
+  - id: ha_log_analyzer_daily
+    alias: "Log Analyzer - Analyse quotidienne"
+    trigger:
+      - platform: time
+        at: "06:00:00"
+    condition:
+      - condition: state
+        entity_id: input_boolean.ha_log_analyzer_enabled
+        state: "on"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "fr"
+            sequence:
+              - service: shell_command.analyze_ha_logs_fr
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "en"
+            sequence:
+              - service: shell_command.analyze_ha_logs_en
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "de"
+            sequence:
+              - service: shell_command.analyze_ha_logs_de
+        default:
+          - service: shell_command.analyze_ha_logs_en
+      - delay: "00:00:10"
+      - service: homeassistant.update_entity
+        target:
+          entity_id: sensor.ha_log_analysis
+    mode: single
+
+# Script pour analyse manuelle
+script:
+  analyze_logs_now:
+    alias: "Analyser les logs maintenant"
+    icon: mdi:file-search
+    sequence:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "fr"
+            sequence:
+              - service: shell_command.analyze_ha_logs_fr
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "en"
+            sequence:
+              - service: shell_command.analyze_ha_logs_en
+          - conditions:
+              - condition: state
+                entity_id: input_select.ha_log_analyzer_language
+                state: "de"
+            sequence:
+              - service: shell_command.analyze_ha_logs_de
+        default:
+          - service: shell_command.analyze_ha_logs_en
+      - delay: "00:00:05"
+      - service: homeassistant.update_entity
+        target:
+          entity_id: sensor.ha_log_analysis
+      - service: persistent_notification.create
+        data:
+          title: "📊 Analyse terminée / Analysis complete / Analyse abgeschlossen"
+          message: >
+            {{ states('sensor.ha_log_analysis') }} erreurs/errors/Fehler
+    mode: single
+
+# Toggle pour activer/désactiver l'analyse auto
+input_boolean:
+  ha_log_analyzer_enabled:
+    name: "Log Analyzer - Auto"
+    icon: mdi:file-chart
+    initial: true
